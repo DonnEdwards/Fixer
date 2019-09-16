@@ -1,6 +1,6 @@
 PROGRAM
-! Fixer 1.0.1       Begun 30 July 2019
-!                   Posted to GitHub 16 Sept 2019 https://github.com/DonnEdwards/Fixer
+! Fixer 1.0     Begun 30 July 2019
+!               First posted to GitHub 16 Sept 2019 https://github.com/DonnEdwards/Fixer
 ! Written by Donn Edwards (c) 2019 WatchManager.Net donn (at) watchmanager.net
 ! with much help from the ClarionLive and ClarionHub community.
 ! Also from the Clarion SHOWIMG example at SoftVelocity\Clarion10\Examples\SRC\SHOWIMG
@@ -92,8 +92,8 @@ qSearchString           CSTRING(1024)                       ! Search for this st
 qReplaceString          CSTRING(1024)                       ! Replace it with this string
 qNo                     SHORT
                     END
-strSearchString     CSTRING(1024)                           ! Search for this string
-strReplaceString    CSTRING(1024)                           ! Replace it with this string
+strSearchString     CSTRING(255)                            ! Search for this string
+strReplaceString    CSTRING(255)                            ! Replace it with this string
 intNo               SHORT
 
 qqFileNames         clsNameQ                                ! Queue containing list of files to be processed
@@ -137,8 +137,8 @@ MyWindow            WINDOW('Fixer 1.0'),AT(,,270,196),FONT('Tahoma',9,,FONT:regu
                             FORMAT('100L(2)|M~Search~C(2)@s40@102L(2)|M~Replace~C(2)@s38@40L(2)|M~No~L(2)'),|
                             USE(?ListBox)
                         ! Edit box for search/replace pairs and sequence number
-                        ENTRY(@s40),AT(17,115,99,10), USE(?SearchString),MSG('Use this to edit the search string')
-                        ENTRY(@s40),AT(119,115,98,10),USE(?ReplaceString),MSG('Use this to edit the replace string')
+                        ENTRY(@S255),AT(17,115,99,10), USE(?SearchString),MSG('Use this to edit the search string')
+                        ENTRY(@S255),AT(119,115,98,10),USE(?ReplaceString),MSG('Use this to edit the replace string')
                         ENTRY(@N4),AT(221,115,36,10), USE(?No),MSG('Use this to edit a particular entry')
                         ! Update button to make the edit happen
                         BUTTON('Update'),AT(221,127,36,14),USE(?UpdateButton),DEFAULT,LEFT,MSG('Update the Search and Replace Data'),|
@@ -168,7 +168,7 @@ MyWindow            WINDOW('Fixer 1.0'),AT(,,270,196),FONT('Tahoma',9,,FONT:regu
         !DBG.PrintEvent('Search=' & strSearchString)
         ?ReplaceString{PROP:Use} = strReplaceString   
         !DBG.PrintEvent('Replace=' & strReplaceString)
-        MyWindow{PROP:StatusText} = 'Fixer 1.0.1 (c) 2019 Watchmanager.net'
+        MyWindow{PROP:StatusText} = 'Fixer 1.0.2 (c) 2019 Watchmanager.net'
         ACCEPT
 
             CASE ACCEPTED() 
@@ -316,8 +316,8 @@ ProcessThisFile     PROCEDURE(STRING pFileName)
 !// Read the file, make a backup, make changes, save   
 st                      StringTheory
 i                       LONG,AUTO
-loc:searchstring        CSTRING(1024)
-loc:replacestring       CSTRING(1024)
+loc:searchstring        CSTRING(255)
+loc:replacestring       CSTRING(255)
     CODE
         IF EXISTS(pFileName & '.txt')
             REMOVE(pFileName & '.txt')
@@ -392,8 +392,8 @@ SaveConfigFile      PROCEDURE
 !// Save the config file variables back to the file
 i                       LONG,AUTO
 n                       LONG,AUTO
-loc:searchstring        CSTRING(1024)
-loc:replacestring       CSTRING(1024)
+loc:searchstring        CSTRING(255)
+loc:replacestring       CSTRING(255)
     CODE
         PUTINI('Fixer',   ,           ,                                strIniFileName)  ! delete the entire section
         PUTINI('Fixer',   'Extensions', strBrowseExtensions,           strIniFileName)
@@ -453,8 +453,6 @@ i                       LONG,AUTO
                 pDirQ:qShortFileName = loc:filename
                 ADD(pDirQ)                                          ! Add the filename to my queue
                 MyWindow{PROP:StatusText} = CLIP(pDir) & loc:filename     ! Show the full file name
-!                DISPLAY
-!                SLEEP(100)  !delay for miliseconds
             END
         END
         FREE(ffq)
