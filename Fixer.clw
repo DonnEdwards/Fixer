@@ -1,7 +1,7 @@
 PROGRAM
 ! Fixer 1.0         Begun 30 July 2019
 !                   Completed 14 Sept 2019
-! Written by Donn Edwards (c) 2019 WatchManager.Net <donn@watchmanager.net> 
+! Written by Donn Edwards (c) 2019 WatchManager.Net donn (at) watchmanager.net
 ! with much help from the ClarionLive and ClarionHub community.
 ! Also from the Clarion SHOWIMG example at SoftVelocity\Clarion10\Examples\SRC\SHOWIMG
 ! And the CapeSoft String Theory library
@@ -69,7 +69,7 @@ PROGRAM
 ! requirements; that is gold-plated with unnecessary features; or that looks
 ! like junk.
 !
-! Written by Daniel Read <dan@developerdotstar.com>
+! Written by Daniel Read dan (at) developerdotstar.com
 ! Full version at http://www.developerdotstar.com/mag/articles/read_princprog.html
 !
 ! -----------------------------------------------------------------------------
