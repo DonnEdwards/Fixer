@@ -1,6 +1,6 @@
 PROGRAM
-! Fixer 1.0         Begun 30 July 2019
-!                   Completed 14 Sept 2019
+! Fixer 1.0.1       Begun 30 July 2019
+!                   Posted to GitHub 16 Sept 2019 https://github.com/DonnEdwards/Fixer
 ! Written by Donn Edwards (c) 2019 WatchManager.Net donn (at) watchmanager.net
 ! with much help from the ClarionLive and ClarionHub community.
 ! Also from the Clarion SHOWIMG example at SoftVelocity\Clarion10\Examples\SRC\SHOWIMG
@@ -105,25 +105,21 @@ qqSearchReplace     clsSearchReplaceQ                       ! Queue containing s
 
 !===============================================================================================================
                     MAP
-                        UpdateVaues
-                        GetListBoxValues
-                        ProcessAllFiles         
-                        OpenConfigFile          
-                        ReadConfigFile          
-                        SaveConfigFile  
+                        UpdateVaues                         ! Update the edited values on the form, save them to the INI file
+                        GetListBoxValues                    ! When the user click on an entry in the listbox, update the editing controls
+                        ProcessAllFiles                     ! The bulk of the file processing happens here
+                        OpenConfigFile                      ! Display Fixer.ini in the default INI text editor      
+                        ReadConfigFile                      ! Read the contents of fixer.ini
+                        SaveConfigFile                      ! Save values to Fixer.ini
                         GetAllFiles (STRING pDir, *clsNameQ pDirQ)    ! Procedure to find all the matching files to be processed
                         ProcessThisFile (STRING pFileName)  ! Read the file, make a backup, make changes, save
                         ExtractFileExtension (STRING pFileName) STRING ! Get the filename extension
-                        Fix_Path (STRING pPath), STRING     ! Check Path for trailing \
+                        Fix_Path (STRING pPath) STRING      ! Check Path for trailing \
 
                         MODULE('')                          ! Debuger  https://github.com/MarkGoldberg/ClarionCommunity
                             OutputDebugString (CONST *CSTRING),PASCAL,NAME('OutputDebugStringA')
                         END
                         ODS (STRING Msg)                    ! Clarionized OutputDebugString
-
-!                        MODULE('')
-!                            SLEEP(LONG),PASCAL             ! Declare Sleep command
-!                        END
                     END
 
 !---------------------------------------------------------------------------------------------------------------
@@ -131,7 +127,7 @@ qqSearchReplace     clsSearchReplaceQ                       ! Queue containing s
 MyWindow            WINDOW('Fixer 1.0'),AT(,,270,196),FONT('Tahoma',9,,FONT:regular),RESIZE,CENTER,GRAY,|
                         ICON('WIZFIND.ICO'),SYSTEM,STATUS
                         ! Go button is the default button for the program
-                        BUTTON('&Go'),AT(100,170,36,14),USE(?OkButton),DEFAULT,RIGHT,TIP('Scan and process the files')
+                        BUTTON('&Go'),AT(100,170,36,14),USE(?GoButton),DEFAULT,RIGHT,TIP('Scan and process the files')
                         ! Title and explanation of what the program does
                         PROMPT('Scan and replace text in Clarion text files'),AT(10,10,250),CENTER,FONT(,12,,FONT:regular)
                         ! Button to open the currently selected project folder
@@ -172,6 +168,7 @@ MyWindow            WINDOW('Fixer 1.0'),AT(,,270,196),FONT('Tahoma',9,,FONT:regu
         !DBG.PrintEvent('Search=' & strSearchString)
         ?ReplaceString{PROP:Use} = strReplaceString   
         !DBG.PrintEvent('Replace=' & strReplaceString)
+        MyWindow{PROP:StatusText} = 'Fixer 1.0.1 (c) 2019 Watchmanager.net'
         ACCEPT
 
             CASE ACCEPTED() 
@@ -186,7 +183,7 @@ MyWindow            WINDOW('Fixer 1.0'),AT(,,270,196),FONT('Tahoma',9,,FONT:regu
 
             OF ?OpenFolder       ; RUN('explorer.exe "' & strBrowseBase & '"',1) ! Show the folder
 
-            OF ?OkButton         ; ProcessAllFiles()        ! The bulk of the work happens here
+            OF ?GoButton         ; ProcessAllFiles()        ! The bulk of the work happens here
 
             OF ?CloseButton      ; POST(EVENT:CloseWindow)  ! All done
 
@@ -205,7 +202,7 @@ AskFolderRoutine           ROUTINE
     IF ~strBrowseBase                                       ! Default if nothing selected       
         strBrowseBase = PATH() & '\'                   
     END
-    strBrowseBase = Fix_Path(strBrowseBase)                 ! Fix the path selected to have a trailing \
+    strBrowseBase = CLIP(Fix_Path(strBrowseBase))           ! Fix the path selected to have a trailing \
     SaveConfigFile()                                        ! Remember it
     ?OpenFolder{PROP:Text} = strBrowseBase                  ! Update the button text with the new folder
     
@@ -213,7 +210,7 @@ AskFolderRoutine           ROUTINE
 !===============================================================================================================
 
 UpdateVaues    PROCEDURE
-!// Update the edited values
+!// Update the edited values on the form, save them to the INI file
     CODE
         !DBG.PrintEvent(RECORDS(qqSearchReplace)) 
         !DBG.PrintEvent('No=' & ?No)
@@ -283,6 +280,7 @@ ProcessAllFiles   PROCEDURE
 loc:fullfilename        CSTRING(FILE:MaxFilePath)
 loc:shortfilename       CSTRING(64)
 i                       LONG,AUTO
+n                       LONG,AUTO
     CODE
 
         MyWindow{PROP:StatusText} = 'Processing the folders ...'
@@ -290,7 +288,7 @@ i                       LONG,AUTO
         CLEAR(qqFileNames)                                  ! Clear the queue
         !
         GetAllFiles(strBrowseBase,qqFileNames)              ! Load the file names into qqFileNames
-        
+        n = 0
         MyWindow{PROP:StatusText} = 'Processing each file ...'
         LOOP i = 1 to RECORDS(qqFileNames)
             GET(qqFileNames,i)                              ! Get the file name from the queue
@@ -303,10 +301,11 @@ i                       LONG,AUTO
             DISPLAY
             !DBG.PrintEvent (loc:fullfilename)
             ProcessThisFile(loc:fullfilename)
+            n += 1
         END ! LOOP i
         FREE(qqFileNames)                                   ! Get rid of the entire queue
         CLEAR(qqFileNames)                                  ! Clear the buffers
-        MyWindow{PROP:StatusText} = '(c) 2019 WatchManager.net'
+        MyWindow{PROP:StatusText} = n & ' files processed'
         SaveConfigFile
         !RUN('explorer.exe "' & strBrowseBase & '"',1)      ! Show the folder
         RETURN
@@ -428,7 +427,7 @@ GetAllFiles         PROCEDURE(STRING pDir, clsNameQ pDirQ)
 !// Procedure to find all the matching files to be processed
 !   Heavily borrowed from C:\Users\Public\Documents\SoftVelocity\Clarion10\Examples\SRC\SHOWIMG
 !
-ffq                     QUEUE !,PRE(ffq)
+ffq                     QUEUE                               ! Required structure for DIRECTORY function
 Name                        STRING(FILE:MaxFileName)
 fName                       STRING(13)
 Date                        LONG
@@ -444,26 +443,26 @@ i                       LONG,AUTO
         loc:filename = CLIP(pDir)
         MyWindow{PROP:StatusText} = pDir
         DISPLAY
-        DIRECTORY(ffq, pDir & '*.*', ff_:NORMAL)                    ! Load the directory into ffq
+        DIRECTORY(ffq, CLIP(pDir) & '*.*', ff_:NORMAL)                    ! Load the directory into ffq
         LOOP i = 1 to RECORDS(ffq)
             GET(ffq, i)
-            loc:filename = CLIP(ffq.name)
-            loc:extension = ExtractFileExtension(loc:filename)      ! get the extension
+            loc:filename = CLIP(ffq.Name)
+            loc:extension = CLIP(ExtractFileExtension(loc:filename)) ! get the extension
             IF MATCH(loc:extension, strBrowseExtensions, Match:Regular+Match:NoCase)! Find matching file extension
-                pDirQ:qFullFileName  = pDir & loc:filename
+                pDirQ:qFullFileName  = CLIP(pDir) & loc:filename
                 pDirQ:qShortFileName = loc:filename
                 ADD(pDirQ)                                          ! Add the filename to my queue
-                MyWindow{PROP:StatusText} = pDir & loc:filename     ! Show the full file name
+                MyWindow{PROP:StatusText} = CLIP(pDir) & loc:filename     ! Show the full file name
 !                DISPLAY
 !                SLEEP(100)  !delay for miliseconds
             END
         END
         FREE(ffq)
-        DIRECTORY(ffq, pDir & '*.*', ff_:DIRECTORY)                 ! Recurse to subfolders
+        DIRECTORY(ffq, CLIP(pDir) & '*.*', ff_:DIRECTORY)                 ! Recurse to subfolders
         LOOP i = 1 to RECORDS(ffq)
             GET(ffq, i)
             IF BAND(ffq.Attrib,ff_:DIRECTORY) AND ffq.Name <> '..' AND ffq.Name <> '.' THEN
-                GetAllFiles(pDir & CLIP(ffq.Name) & '\', pDirQ)     ! Add files from subfolders
+                GetAllFiles(CLIP(pDir) & CLIP(ffq.Name) & '\', pDirQ)     ! Add files from subfolders
             END
         END
 
@@ -472,13 +471,13 @@ i                       LONG,AUTO
 Fix_Path            FUNCTION (STRING pPath)
 !// Check path for trailing \ and add it if necessary
 !   Written by Graham Smith as part of gsTools (c) WatchManager.net
-loc:path                STRING(FILE:MaxFilePath)
+loc:path                CSTRING(FILE:MaxFilePath)
     CODE                                                    ! Begin processed code
-        loc:path = pPath
+        loc:path = CLIP(pPath)
         !
-        IF CLIP(loc:Path) <> '' THEN                        ! Is it a valid path
-            if SUB(CLIP(loc:Path), LEN(CLIP(loc:Path)), 1) <> '\' THEN ! Trailing \?
-                loc:Path = CLIP(loc:Path) & '\'             ! Add the trailing \
+        IF loc:Path <> '' THEN                              ! Is it a valid path
+            if SUB(loc:Path, LEN(loc:Path), 1) <> '\' THEN  ! Trailing \?
+                loc:Path = loc:Path & '\'                   ! Add the trailing \
             end
         END
         !
