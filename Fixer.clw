@@ -6,6 +6,8 @@ PROGRAM
 ! Also from the Clarion SHOWIMG example at SoftVelocity\Clarion10\Examples\SRC\SHOWIMG
 ! And the CapeSoft String Theory library
 ! And Mark Goldberg for the Debuger library https://github.com/MarkGoldberg/ClarionCommunity
+!     and his generous code review
+! I used the debug viewer found here: https://github.com/CobaltFusion/DebugViewPP
 ! Thanks to Graham Smith of WatchManager.Net for his time and attention, and library code
 !
 !Region Principled programming
