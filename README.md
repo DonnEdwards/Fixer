@@ -14,11 +14,11 @@ Mark Goldberg's debug library isn't absolutely necessary, but has been extremely
 bugs and getting the program to work as required.
 
 The Fixer.ini file contains the settings needed. Most of them can be modified using the form, but
-there are a few items that need further explanation:
+there is an item that needs further explanation:
 
 Extensions=.clw|.inc
 
-This specifies the file extensions to be edited. Do not use .txt as an extension, but separate the 
+This specifies the file extensions to be edited. *Do not use .txt as an extension*, but separate the 
 extensions you want to edit with a pipe symbol, instead of the usual semicolon. The star character 
 doesn't work as a wild card.
 
