@@ -10,5 +10,5 @@ It was written as a learning exercise to understand how hand coded Clarion progr
 and how to put everything together to create a working program. Hopefully it is sufficently 
 well documented to explain what is going on and how it all works.
 
-The debug library isn't absolutely necessary, but has been extremely helpful in finding
+Mark Goldberg's debug library isn't absolutely necessary, but has been extremely helpful in finding
 bugs and getting the program to work as required.
