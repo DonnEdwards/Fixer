@@ -171,7 +171,7 @@ MyWindow            WINDOW('Fixer 1.0'),AT(,,270,196),FONT('Tahoma',9,,FONT:regu
         !DBG.PrintEvent('Search=' & strSearchString)
 !        ?ReplaceString{PROP:Use} = strReplaceString   
         !DBG.PrintEvent('Replace=' & strReplaceString)
-        MyWindow{PROP:StatusText} = 'Fixer 1.0.3 (c) 2019 Watchmanager.net'
+        MyWindow{PROP:StatusText} = 'Fixer 1.0.4 (c) 2019 Watchmanager.net'
         ACCEPT
 
             CASE ACCEPTED() 

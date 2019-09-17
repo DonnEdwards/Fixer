@@ -31,11 +31,11 @@
     <AspNetConfiguration>$(Configuration)</AspNetConfiguration>
   </PropertyGroup>
   <PropertyGroup>
-    <SolutionDir>C:\dev\Fixer\</SolutionDir>
+    <SolutionDir>C:\Users\Public\Documents\SoftVelocity\Clarion10\Examples\Fixer\</SolutionDir>
     <SolutionExt>.sln</SolutionExt>
     <SolutionFileName>Fixer.sln</SolutionFileName>
     <SolutionName>Fixer</SolutionName>
-    <SolutionPath>C:\dev\Fixer\Fixer.sln</SolutionPath>
+    <SolutionPath>C:\Users\Public\Documents\SoftVelocity\Clarion10\Examples\Fixer\Fixer.sln</SolutionPath>
   </PropertyGroup>
   <PropertyGroup>
     <TargetFrameworkVersion Condition="'$(TargetFrameworkVersion)' == '' and '$(MSBuildToolsVersion)' == '2.0'">v2.0</TargetFrameworkVersion>
