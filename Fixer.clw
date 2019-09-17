@@ -90,21 +90,22 @@ qShortFileName          CSTRING(FILE:MaxFileName)           ! File name without 
 clsSearchReplaceQ   QUEUE,TYPE                              ! Queue structure for search and replace
 qSearchString           CSTRING(1024)                       ! Search for this string
 qReplaceString          CSTRING(1024)                       ! Replace it with this string
-qNo                     SHORT
+qPairNo                 SHORT                               ! Pair Number
                     END
 strSearchString     CSTRING(255)                            ! Search for this string
 strReplaceString    CSTRING(255)                            ! Replace it with this string
-intNo               SHORT
+intPairNo           SHORT                                   ! Displayed Pair number
 
 qqFileNames         clsNameQ                                ! Queue containing list of files to be processed
 strBrowseBase       CSTRING(FILE:MaxFilePath)               ! Project folder
 strIniFileName      CSTRING(FILE:MaxFilePath)               ! Location of Fixer.ini
-strBrowseExtensions CSTRING(1024)                           ! List of File extensions to be processed
+strBrowseExtensions CSTRING(255)                            ! List of File extensions to be processed
 
 qqSearchReplace     clsSearchReplaceQ                       ! Queue containing search and replace strings
 
 !===============================================================================================================
                     MAP
+                        INCLUDE('cwutil.inc'),ONCE
                         UpdateVaues                         ! Update the edited values on the form, save them to the INI file
                         GetListBoxValues                    ! When the user click on an entry in the listbox, update the editing controls
                         ProcessAllFiles                     ! The bulk of the file processing happens here
@@ -116,9 +117,11 @@ qqSearchReplace     clsSearchReplaceQ                       ! Queue containing s
                         ExtractFileExtension (STRING pFileName) STRING ! Get the filename extension
                         Fix_Path (STRING pPath) STRING      ! Check Path for trailing \
 
-                        MODULE('')                          ! Debuger  https://github.com/MarkGoldberg/ClarionCommunity
-                            OutputDebugString (CONST *CSTRING),PASCAL,NAME('OutputDebugStringA')
+                        MODULE('')                          
+                            OutputDebugString (CONST *CSTRING),PASCAL,NAME('OutputDebugStringA') ! Debuger  
+                            errno(),*SIGNED,NAME('__errno__') !prototype built-in error flag, used by CreateDirectory
                         END
+
                         ODS (STRING Msg)                    ! Clarionized OutputDebugString
                     END
 
@@ -137,9 +140,9 @@ MyWindow            WINDOW('Fixer 1.0'),AT(,,270,196),FONT('Tahoma',9,,FONT:regu
                             FORMAT('100L(2)|M~Search~C(2)@s40@102L(2)|M~Replace~C(2)@s38@40L(2)|M~No~L(2)'),|
                             USE(?ListBox)
                         ! Edit box for search/replace pairs and sequence number
-                        ENTRY(@S255),AT(17,115,99,10), USE(?SearchString),MSG('Use this to edit the search string')
-                        ENTRY(@S255),AT(119,115,98,10),USE(?ReplaceString),MSG('Use this to edit the replace string')
-                        ENTRY(@N4),AT(221,115,36,10), USE(?No),MSG('Use this to edit a particular entry')
+                        ENTRY(@S255),AT(17,115,99,10), USE(strSearchString),MSG('Use this to edit the search string')
+                        ENTRY(@S255),AT(119,115,98,10),USE(strReplaceString),MSG('Use this to edit the replace string')
+                        ENTRY(@N4),AT(221,115,36,10), USE(intPairNo),MSG('Use this to edit a particular entry')
                         ! Update button to make the edit happen
                         BUTTON('Update'),AT(221,127,36,14),USE(?UpdateButton),DEFAULT,LEFT,MSG('Update the Search and Replace Data'),|
                             TIP('Click to update the Search and Replace pair')
@@ -162,13 +165,13 @@ MyWindow            WINDOW('Fixer 1.0'),AT(,,270,196),FONT('Tahoma',9,,FONT:regu
         ReadConfigFile                                      ! Get all the INI settings
         OPEN(MyWindow)
         ?OpenFolder{PROP:Text} = strBrowseBase              ! set the button text to the project folder setting
-        ?No{PROP:Use} = intNo 
-        !DBG.PrintEvent('No=' & intNo)
-        ?SearchString{PROP:Use} = strSearchString  
+!        ?PairNo{PROP:Use} = intPairNo 
+        !DBG.PrintEvent('No=' & intPairNo)
+!        ?SearchString{PROP:Use} = strSearchString  
         !DBG.PrintEvent('Search=' & strSearchString)
-        ?ReplaceString{PROP:Use} = strReplaceString   
+!        ?ReplaceString{PROP:Use} = strReplaceString   
         !DBG.PrintEvent('Replace=' & strReplaceString)
-        MyWindow{PROP:StatusText} = 'Fixer 1.0.2 (c) 2019 Watchmanager.net'
+        MyWindow{PROP:StatusText} = 'Fixer 1.0.3 (c) 2019 Watchmanager.net'
         ACCEPT
 
             CASE ACCEPTED() 
@@ -214,47 +217,47 @@ UpdateVaues    PROCEDURE
     CODE
         !DBG.PrintEvent(RECORDS(qqSearchReplace)) 
         !DBG.PrintEvent('No=' & ?No)
-        intNo = ?No{PROP:Value}                             ! Which entry are we working with?
-        IF intNo < 1                                        ! Invalid entry number or empty queue
-            intNo = 1
+!        intPairNo = ?PairNo{PROP:Value}                             ! Which entry are we working with?
+        IF intPairNo < 1                                        ! Invalid entry number or empty queue
+            intPairNo = 1
         END
-        !DBG.PrintEvent('No=' & intNo)
-        strSearchString = ?SearchString{PROP:Value}
-        !DBG.PrintEvent('Find=' & strSearchString)
-        strReplaceString = ?ReplaceString{PROP:Value}
-        !DBG.PrintEvent('Repl=' & strReplaceString)
-        IF intNo > RECORDS(qqSearchReplace)                 ! Invalid entry number
-            intNo = RECORDS(qqSearchReplace) + 1            ! Add a new entry
-            ?No{PROP:Use} = intNo                           ! Correct the display
+        DBG.PrintEvent('PairNo=' & intPairNo)
+!        strSearchString = ?SearchString{PROP:Value}
+        DBG.PrintEvent('Find=' & strSearchString)
+!        strReplaceString = ?ReplaceString{PROP:Value}
+        DBG.PrintEvent('Repl=' & strReplaceString)
+        IF intPairNo > RECORDS(qqSearchReplace)                 ! Invalid entry number
+            intPairNo = RECORDS(qqSearchReplace) + 1            ! Add a new entry
+!            ?PairNo{PROP:Use} = intPairNo                           ! Correct the display
         END
-        IF intNo > RECORDS(qqSearchReplace)                 ! Add a new entry
+        IF intPairNo > RECORDS(qqSearchReplace)                 ! Add a new entry
             IF LEN(CLIP(strSearchString)) > 0               ! Ignore blank searches
                 CLEAR(qqSearchReplace)                      ! Clear the queue entry
                 qqSearchReplace.qSearchString = strSearchString
                 qqSearchReplace.qReplaceString = strReplaceString
-                qqSearchReplace.qNo = intNo
+                qqSearchReplace.qPairNo = intPairNo
                 ADD(qqSearchReplace)                        ! Add the pair to the queue
                 !DBG.PrintEvent('ADD ' & RECORDS(qqSearchReplace)) 
             END
         ELSE
             CLEAR(qqSearchReplace)                          ! Clear the queue entry
-            GET(qqSearchReplace,intNo)                      ! get the entry to be updated                       
+            GET(qqSearchReplace,intPairNo)                      ! get the entry to be updated                       
             qqSearchReplace.qSearchString = strSearchString
             qqSearchReplace.qReplaceString = strReplaceString
-            qqSearchReplace.qNo = intNo   
+            qqSearchReplace.qPairNo = intPairNo   
             PUT(qqSearchReplace)                            ! Update the queue
-            !DBG.PrintEvent('PUT ' & intNo) 
+            !DBG.PrintEvent('PUT ' & intPairNo) 
         END
         SaveConfigFile()                                    ! Store the queue in the INI file
         !
         ReadConfigFile()                                    ! Update the display with current values
-        ?No{PROP:Use} = intNo 
-        !DBG.PrintEvent('No=' & intNo)
-        ?SearchString{PROP:Use} = strSearchString  
-        !DBG.PrintEvent('Search=' & strSearchString)
-        ?ReplaceString{PROP:Use} = strReplaceString 
+!        ?PairNo{PROP:Use} = intPairNo 
+!        !DBG.PrintEvent('No=' & intPairNo)
+!        ?SearchString{PROP:Use} = strSearchString  
+!        !DBG.PrintEvent('Search=' & strSearchString)
+!        ?ReplaceString{PROP:Use} = strReplaceString 
         ?ListBox{PROP:Use} = qqSearchReplace                ! Update the listbox
-        ?ListBox{PROP:Selected} = intNo                     ! Highlight the correct entry
+        ?ListBox{PROP:Selected} = intPairNo                     ! Highlight the correct entry
         RETURN
 
 !---------------------------------------------------------------------------------------------------------------
@@ -267,10 +270,13 @@ i                       LONG
         GET(qqSearchReplace,i)                              ! Get the data from the queue
         strSearchString = qqSearchReplace.qSearchString     ! Save it locally
         strReplacestring = qqSearchReplace.qReplaceString 
-        intNo = qqSearchReplace.qNo
-        ?SearchString{PROP:Use} = strSearchString           ! Update the editing controls
-        ?ReplaceString{PROP:Use} = strReplaceString
-        ?No{PROP:Use} = intNo       
+        intPairNo = qqSearchReplace.qPairNo
+        ?strSearchString{PROP:Use} = strSearchString        ! Update the editing controls
+        ?strReplaceString{PROP:Use} = strReplaceString
+        ?intPairNo{PROP:Use} = intPairNo    
+!        DBG.PrintEvent('No_=' & intPairNo) 
+!        DBG.PrintEvent('Search_=' & strSearchString)
+!        DBG.PrintEvent('Replace_=' & strReplaceString)
         RETURN
 
 !---------------------------------------------------------------------------------------------------------------
@@ -366,22 +372,22 @@ i                       SHORT,AUTO
         CLEAR(qqSearchReplace)                                                              ! Clear the queue
         loc:findcount = (CLIP(GETINI('FixerSR','FindCount',0,           strIniFileName)))
         loc:findcount += 1                                                                  ! Check for one more pair
-        intNo = 0
+        intPairNo = 0
         LOOP     i = 1 TO loc:findcount                                                     ! Go through the declared pairs
             strSearchString =  GETINI('FixerSR','Find_' & CLIP(i),'',   strIniFileName)
             strReplaceString = GETINI('FixerSR','Repl_' & CLIP(i),'',   strIniFileName)
             IF LEN(CLIP(strSearchString)) > 0               ! Ignore blank searches
-                intNo += 1                                  ! increment intNo
+                intPairNo += 1                              ! increment intPairNo
                 qqSearchReplace.qSearchString = strSearchString
                 qqSearchReplace.qReplaceString = strReplaceString
-                qqSearchReplace.qNo = intNo
+                qqSearchReplace.qPairNo = intPairNo
                 ADD(qqSearchReplace)                        ! Add the pair to the queue
             END
         END ! LOOP i
         strSearchString = qqSearchReplace.qSearchString     ! Remember the last value
         strReplaceString = qqSearchReplace.qReplaceString 
-        intNo = RECORDS(qqSearchReplace)
-        !DBG.PrintEvent('No_=' & intNo) 
+        intPairNo = RECORDS(qqSearchReplace)
+        !DBG.PrintEvent('No_=' & intPairNo) 
         !DBG.PrintEvent('Search_=' & strSearchString)
         !DBG.PrintEvent('Replace_=' & strReplaceString)
         RETURN
