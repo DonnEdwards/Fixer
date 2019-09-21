@@ -100,6 +100,7 @@ qqFileNames         clsNameQ                                ! Queue containing l
 strBrowseBase       CSTRING(FILE:MaxFilePath)               ! Project folder
 strIniFileName      CSTRING(FILE:MaxFilePath)               ! Location of Fixer.ini
 strBrowseExtensions CSTRING(255)                            ! List of File extensions to be processed
+strExcludeSubFolders        CSTRING(255)                    ! List of folders to be ignored
 
 qqSearchReplace     clsSearchReplaceQ                       ! Queue containing search and replace strings
 
@@ -113,11 +114,12 @@ qqSearchReplace     clsSearchReplaceQ                       ! Queue containing s
                         ReadConfigFile                      ! Read the contents of fixer.ini
                         SaveConfigFile                      ! Save values to Fixer.ini
                         GetAllFiles (STRING pDir, *clsNameQ pDirQ)    ! Procedure to find all the matching files to be processed
-                        ProcessThisFile (STRING pFileName)  ! Read the file, make a backup, make changes, save
+                        ProcessThisFile (STRING pFullFileName, STRING pShortFileName)  ! Read the file, make a backup, make changes, save
                         ExtractFileExtension (STRING pFileName) STRING ! Get the filename extension
                         Fix_Path (STRING pPath) STRING      ! Check Path for trailing \
 
-                        MODULE('')                          
+                        MODULE('')    
+!                            SLEEP(LONG),PASCAL              ! Declare Sleep command
                             OutputDebugString (CONST *CSTRING),PASCAL,NAME('OutputDebugStringA') ! Debuger  
                             errno(),*SIGNED,NAME('__errno__') !prototype built-in error flag, used by CreateDirectory
                         END
@@ -171,7 +173,7 @@ MyWindow            WINDOW('Fixer 1.0'),AT(,,270,196),FONT('Tahoma',9,,FONT:regu
         !DBG.PrintEvent('Search=' & strSearchString)
 !        ?ReplaceString{PROP:Use} = strReplaceString   
         !DBG.PrintEvent('Replace=' & strReplaceString)
-        MyWindow{PROP:StatusText} = 'Fixer 1.0.4 (c) 2019 Watchmanager.net'
+        MyWindow{PROP:StatusText} = 'Fixer 1.0.5 (c) 2019 Watchmanager.net'     ! <--- Program version
         ACCEPT
 
             CASE ACCEPTED() 
@@ -271,9 +273,12 @@ i                       LONG
         strSearchString = qqSearchReplace.qSearchString     ! Save it locally
         strReplacestring = qqSearchReplace.qReplaceString 
         intPairNo = qqSearchReplace.qPairNo
-        ?strSearchString{PROP:Use} = strSearchString        ! Update the editing controls
-        ?strReplaceString{PROP:Use} = strReplaceString
-        ?intPairNo{PROP:Use} = intPairNo    
+        DISPLAY(strSearchString)                            ! Update the editing controls
+!        ?strSearchString{PROP:Use} = strSearchString        
+        DISPLAY(strReplaceString)
+!        ?strReplaceString{PROP:Use} = strReplaceString
+        DISPLAY(intPairNo)
+!        ?intPairNo{PROP:Use} = intPairNo    
 !        DBG.PrintEvent('No_=' & intPairNo) 
 !        DBG.PrintEvent('Search_=' & strSearchString)
 !        DBG.PrintEvent('Replace_=' & strReplaceString)
@@ -303,10 +308,11 @@ n                       LONG,AUTO
             END
             loc:fullfilename = qqFileNames.qFullFileName    ! Save the file name locally
             loc:shortfilename = qqFileNames.qShortFileName   
-            MyWindow{PROP:StatusText} = loc:shortfilename   ! Display it
+            MyWindow{PROP:StatusText} = (n+1) & ' ' & loc:shortfilename   ! Display it
             DISPLAY
+!            SLEEP(1000)
             !DBG.PrintEvent (loc:fullfilename)
-            ProcessThisFile(loc:fullfilename)
+            ProcessThisFile(loc:fullfilename,loc:shortfilename)
             n += 1
         END ! LOOP i
         FREE(qqFileNames)                                   ! Get rid of the entire queue
@@ -318,35 +324,69 @@ n                       LONG,AUTO
 
 !---------------------------------------------------------------------------------------------------------------
         
-ProcessThisFile     PROCEDURE(STRING pFileName)  
+ProcessThisFile     PROCEDURE(STRING pFullFileName, STRING pShortFileName)  
 !// Read the file, make a backup, make changes, save   
+!   Source file example: c:\dev\myfile.clw
+!   Target file example: c:\dev\.txt\myfile.clw.txt
 st                      StringTheory
 i                       LONG,AUTO
-loc:searchstring        CSTRING(255)
-loc:replacestring       CSTRING(255)
+loc:sourcefilename      CSTRING(FILE:MaxFilePath)
+loc:targetfilename      CSTRING(FILE:MaxFilePath)
+loc:targetfolder        CSTRING(FILE:MaxFilePath)
     CODE
-        IF EXISTS(pFileName & '.txt')
-            REMOVE(pFileName & '.txt')
+        loc:sourcefilename = CLIP(pFullFileName)
+!        DBG.PrintEvent(loc:sourcefilename)
+        i = LEN(CLIP(pShortFileName))
+        loc:targetfolder = SUB(loc:sourcefilename,1,LEN(loc:sourcefilename)-i) & '.txt\'
+!        DBG.PrintEvent(loc:targetfolder)
+        loc:targetfilename = loc:targetfolder & CLIP(pShortFileName) & '.txt'
+!        DBG.PrintEvent(loc:targetfilename)
+        IF NOT EXISTS(loc:targetfolder)                     ! Check for target folder
+            IF CreateDirectory(loc:targetfolder)            ! Create Target folder
+                CASE Errno()
+                OF 3
+                    MESSAGE('Path Not Found')
+                OF 5
+                    MESSAGE('Access Denied')
+                OF 183
+                    MESSAGE('Directory Already Exists')
+                ELSE
+                    MESSAGE('Unknown Error ' & Errno())
+                END
+            END
+        END
+        IF EXISTS(loc:targetfilename)                       ! Target file
+            REMOVE(loc:targetfilename)
             IF ERRORCODE()
                 STOP(ERROR())
             END            
         END
-        COPY(pFileName,pFileName & '.txt')                  ! Make a copy of the file
-        st.LoadFile(pFileName & '.txt')                     ! Read the entire copied file
-        ! Make the changes to the file here
-        LOOP i = 1 to RECORDS(qqSearchReplace)
-            GET(qqSearchReplace,i)                          ! Get the data from the queue
+        IF EXISTS(loc:sourcefilename)                       ! Original file
+            COPY(loc:sourcefilename,loc:targetfilename)     ! Make a copy of the file
             IF ERRORCODE()
                 STOP(ERROR())
             END
-            loc:searchstring = qqSearchReplace.qSearchString ! Save it locally
-            loc:replacestring = qqSearchReplace.qReplaceString 
-            IF LEN(CLIP(loc:searchstring)) > 0              ! Only valid searches 
-                st.Replace(loc:searchstring,loc:replacestring) ! Do the search and replace across the entire file
+            st.LoadFile(loc:targetfilename)                 ! Read the entire copied file
+            IF ERRORCODE()
+                STOP(ERROR())
             END
-        END ! LOOP i
-        st.SaveFile(pFileName & '.txt')                     ! Write the file back to disk
-!        
+            !// Make the changes to the target file here
+            LOOP i = 1 to RECORDS(qqSearchReplace)
+                GET(qqSearchReplace,i)                      ! Get the data from the queue
+                IF ERRORCODE()
+                    STOP(ERROR())
+                END
+!                loc:searchstring = qqSearchReplace.qSearchString ! Save it locally
+!                loc:replacestring = qqSearchReplace.qReplaceString 
+                IF LEN(CLIP(qqSearchReplace.qSearchString)) > 0 ! Only valid searches 
+                    st.Replace(qqSearchReplace.qSearchString,qqSearchReplace.qReplaceString) ! Do the search and replace across the entire file
+                END
+            END ! LOOP i
+            st.SaveFile(loc:targetfilename)                 ! Write the changed file back to disk
+            IF ERRORCODE()
+                STOP(ERROR())
+            END
+        END                                                 ! Original File
         RETURN
    
        
@@ -365,25 +405,38 @@ ReadConfigFile      PROCEDURE
 loc:findcount           SHORT,AUTO
 i                       SHORT,AUTO
     CODE
-        strIniFileName = PATH() & '\Fixer.ini'              ! The location of Fixer.ini
-        strBrowseBase =       GETINI('Fixer', 'Project',   PATH() & '\',strIniFileName)     ! The folder Fixer will work in
-        strBrowseExtensions = GETINI('Fixer', 'Extensions','.clw|.inc', strIniFileName)     ! List of file extensions
         FREE(qqSearchReplace)
-        CLEAR(qqSearchReplace)                                                              ! Clear the queue
-        loc:findcount = (CLIP(GETINI('FixerSR','FindCount',0,           strIniFileName)))
-        loc:findcount += 1                                                                  ! Check for one more pair
-        intPairNo = 0
-        LOOP     i = 1 TO loc:findcount                                                     ! Go through the declared pairs
-            strSearchString =  GETINI('FixerSR','Find_' & CLIP(i),'',   strIniFileName)
-            strReplaceString = GETINI('FixerSR','Repl_' & CLIP(i),'',   strIniFileName)
-            IF LEN(CLIP(strSearchString)) > 0               ! Ignore blank searches
-                intPairNo += 1                              ! increment intPairNo
-                qqSearchReplace.qSearchString = strSearchString
-                qqSearchReplace.qReplaceString = strReplaceString
-                qqSearchReplace.qPairNo = intPairNo
-                ADD(qqSearchReplace)                        ! Add the pair to the queue
-            END
-        END ! LOOP i
+        CLEAR(qqSearchReplace)                              ! Clear the queue
+        strIniFileName = PATH() & '\Fixer.ini'              ! The location of Fixer.ini
+        IF FileExists(strIniFileName)      
+            loc:findcount =  (CLIP(GETINI('FixerSR','FindCount',0,          strIniFileName)))
+            loc:findcount += 1                                                                  ! Check for one more pair
+            intPairNo = 0
+            LOOP     i = 1 TO loc:findcount                                                     ! Go through the declared pairs
+                strSearchString =  GETINI('FixerSR','Find_' & CLIP(i),'',   strIniFileName)
+                strReplaceString = GETINI('FixerSR','Repl_' & CLIP(i),'',   strIniFileName)
+                IF LEN(CLIP(strSearchString)) > 0               ! Ignore blank searches
+                    intPairNo += 1                              ! increment intPairNo
+                    qqSearchReplace.qSearchString = strSearchString
+                    qqSearchReplace.qReplaceString = strReplaceString
+                    qqSearchReplace.qPairNo = intPairNo
+                    ADD(qqSearchReplace)                        ! Add the pair to the queue
+                END
+            END ! LOOP i
+        ELSE                                                ! Fixer.ini is missing, so create a default one
+            qqSearchReplace.qSearchString = 'MS Sans Serif'
+            qqSearchReplace.qReplaceString = 'Tahoma'
+            qqSearchReplace.qPairNo = 1
+            ADD(qqSearchReplace)                            ! Add a default pair to the queue
+            qqSearchReplace.qSearchString = 'Microsoft Sans Serif'
+            qqSearchReplace.qReplaceString = 'Tahoma'
+            qqSearchReplace.qPairNo = 2
+            ADD(qqSearchReplace)                            ! Add another default pair to the queue
+        END
+        strBrowseBase =        GETINI('Fixer', 'Project',   PATH() & '\',               strIniFileName) ! The folder Fixer will work in
+        strBrowseExtensions =  GETINI('Fixer', 'Extensions','.clw|.inc',                strIniFileName) ! List of file extensions
+        strExcludeSubFolders = GETINI('Fixer', 'ExcludeSubFolders','.txt|.git|map|obj', strIniFileName) ! Ignore these subfolders
+
         strSearchString = qqSearchReplace.qSearchString     ! Remember the last value
         strReplaceString = qqSearchReplace.qReplaceString 
         intPairNo = RECORDS(qqSearchReplace)
@@ -402,9 +455,10 @@ loc:searchstring        CSTRING(255)
 loc:replacestring       CSTRING(255)
     CODE
         PUTINI('Fixer',   ,           ,                                strIniFileName)  ! delete the entire section
-        PUTINI('Fixer',   'Extensions', strBrowseExtensions,           strIniFileName)
-        PUTINI('Fixer',   'Project',    strBrowseBase,                 strIniFileName)
-        
+        PUTINI('Fixer',   'Extensions',        strBrowseExtensions,    strIniFileName)  ! write the section values
+        PUTINI('Fixer',   'ExcludeSubFolders', strExcludeSubFolders,   strIniFileName)
+        PUTINI('Fixer',   'Project',           strBrowseBase,          strIniFileName)
+      
         PUTINI('FixerSR', , ,                                          strIniFileName)  ! delete the entire section
         n = 0
         PUTINI('FixerSR', 'FindCount',       RECORDS(qqSearchReplace), strIniFileName)
@@ -443,11 +497,13 @@ Attrib                      BYTE
                         END
 loc:filename            CSTRING(FILE:MaxFileName)
 loc:extension           CSTRING(FILE:MaxFileName)
+loc:folder              CSTRING(FILE:MaxFileName)
 i                       LONG,AUTO
 
     CODE
         loc:filename = CLIP(pDir)
-        MyWindow{PROP:StatusText} = pDir
+        MyWindow{PROP:StatusText} = loc:filename
+!        DBG.PrintEvent(loc:filename)
         DISPLAY
         DIRECTORY(ffq, CLIP(pDir) & '*.*', ff_:NORMAL)                    ! Load the directory into ffq
         LOOP i = 1 to RECORDS(ffq)
@@ -459,14 +515,20 @@ i                       LONG,AUTO
                 pDirQ:qShortFileName = loc:filename
                 ADD(pDirQ)                                          ! Add the filename to my queue
                 MyWindow{PROP:StatusText} = CLIP(pDir) & loc:filename     ! Show the full file name
+!                DBG.PrintEvent(loc:filename)
             END
         END
         FREE(ffq)
         DIRECTORY(ffq, CLIP(pDir) & '*.*', ff_:DIRECTORY)                 ! Recurse to subfolders
         LOOP i = 1 to RECORDS(ffq)
             GET(ffq, i)
-            IF BAND(ffq.Attrib,ff_:DIRECTORY) AND ffq.Name <> '..' AND ffq.Name <> '.' THEN
-                GetAllFiles(CLIP(pDir) & CLIP(ffq.Name) & '\', pDirQ)     ! Add files from subfolders
+            loc:folder = CLIP(ffq.Name)
+!            DBG.PrintEvent(loc:folder)
+            IF BAND(ffq.Attrib,ff_:DIRECTORY) AND loc:folder <> '..' AND loc:folder <> '.' THEN
+                IF NOT MATCH(loc:folder, strExcludeSubFolders, Match:Regular+Match:NoCase)! Find matching folder name
+                    GetAllFiles(CLIP(pDir) & loc:folder & '\', pDirQ)     ! Add files from subfolders
+!                    DBG.PrintEvent(loc:folder)
+                END
             END
         END
 
